@@ -82,6 +82,18 @@ def _benchmark_cpu(fn, iters: int) -> tuple[list[float], Any]:
     return times_ms, out
 
 
+def _synchronize_device(device: torch.device) -> None:
+    if device.type != "cuda":
+        return
+    torch.cuda.synchronize(device)
+    try:
+        import pycuda.driver as cuda  # type: ignore
+
+        cuda.Context.synchronize()
+    except Exception:
+        pass
+
+
 def _benchmark_cuda(fn, iters: int) -> tuple[list[float], Any]:
     times_ms: list[float] = []
     out = None
@@ -94,6 +106,20 @@ def _benchmark_cuda(fn, iters: int) -> tuple[list[float], Any]:
         end.record()
         torch.cuda.synchronize()
         times_ms.append(start.elapsed_time(end))
+    assert out is not None
+    return times_ms, out
+
+
+def _benchmark_cuda_wallclock(fn, iters: int, device: torch.device) -> tuple[list[float], Any]:
+    times_ms: list[float] = []
+    out = None
+    for _ in range(iters):
+        _synchronize_device(device)
+        start = time.perf_counter()
+        out = fn()
+        _synchronize_device(device)
+        end = time.perf_counter()
+        times_ms.append((end - start) * 1000.0)
     assert out is not None
     return times_ms, out
 
@@ -154,6 +180,9 @@ def benchmark_backend(
         torch.cuda.reset_peak_memory_stats(device)
         times_ms, output = _benchmark_cuda(fn, config.measure_iters)
         peak_memory = int(torch.cuda.max_memory_allocated(device))
+    elif device.type == "cuda" and backend == "naive":
+        times_ms, output = _benchmark_cuda_wallclock(fn, config.measure_iters, device)
+        peak_memory = None
     else:
         times_ms, output = _benchmark_cpu(fn, config.measure_iters)
         peak_memory = None
