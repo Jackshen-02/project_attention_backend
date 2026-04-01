@@ -1,5 +1,31 @@
 # Preliminary Results
 
+## Baseline And Scope
+
+- System baseline: restored `llmsys_hw4` MiniTorch attention stack, because HW4 already includes the transformer path and CUDA-oriented kernel plumbing relevant to this project.
+- We do not use `llmsys_hw5` as the project baseline because HW5 is primarily about distributed training and pipeline/data parallel execution rather than attention-backend design.
+- Midterm scope:
+  - `naive`: restored MiniTorch baseline attention
+  - `flash_tiled`: MiniTorch-integrated tiled attention backend
+  - prefill-only attention benchmarking with synthetic inputs
+
+## Current Status
+
+- Implemented:
+  - restored HW4 MiniTorch base inside `project_attention_backend/minitorch/`
+  - backend selector in `minitorch/modules_transfomer.py`
+  - tiled attention backend in `attention_backend/flash.py`
+  - benchmark harness in `benchmark_attention_prefill.py`
+  - correctness tests in `tests/`
+  - formal H100 sweep in `results/prefill_h100_bs1_h8_d64.{json,txt}`
+- Partial:
+  - runtime CUDA peak memory is not a reliable report metric in this mixed MiniTorch/PyCUDA/Torch setup
+  - KV cache work is only a scaffold for now
+- Not done yet:
+  - paged KV cache experiments
+  - decode-side benchmarking
+  - custom fused CUDA attention kernel
+
 ## Experiment Setup
 
 - Platform: PSC Bridges-2 `H100 80GB HBM3`
