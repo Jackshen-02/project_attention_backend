@@ -1,0 +1,38 @@
+[1/12] backend=naive seq_len=128
+  warmup=5 measure=20
+[2/12] backend=flash_tiled seq_len=128
+  warmup=5 measure=20
+[3/12] backend=naive seq_len=512
+  warmup=5 measure=20
+[4/12] backend=flash_tiled seq_len=512
+  warmup=5 measure=20
+[5/12] backend=naive seq_len=1024
+  warmup=5 measure=20
+[6/12] backend=flash_tiled seq_len=1024
+  warmup=5 measure=20
+[7/12] backend=naive seq_len=2048
+  warmup=5 measure=20
+[8/12] backend=flash_tiled seq_len=2048
+  warmup=5 measure=20
+[9/12] backend=naive seq_len=4096
+  warmup=5 measure=20
+[10/12] backend=flash_tiled seq_len=4096
+  warmup=5 measure=20
+[11/12] backend=naive seq_len=8192
+  warmup=5 measure=20
+[12/12] backend=flash_tiled seq_len=8192
+  warmup=5 measure=20
+backend       seq_len   latency_ms        tok/s    peak_mb  est_peak_mb  max_abs_err  max_rel_err out_nonfinite ref_nonfinite
+-----------------------------------------------------------------------------------------------------------------------------
+naive             128       10.266     12468.78        n/a         1.00    0.000e+00    0.000e+00             0             0
+flash_tiled       128        3.965     32286.23        n/a         1.26    5.960e-07    2.673e-03             0             0
+naive             512       70.625      7249.59        n/a        16.00    0.000e+00    0.000e+00             0             0
+flash_tiled       512        9.824     52118.25        n/a         5.03    5.662e-07    4.529e-03             0             0
+naive            1024      316.684      3233.51        n/a        64.00    0.000e+00    0.000e+00             0             0
+flash_tiled      1024       21.467     47702.03        n/a        10.06    7.749e-07    4.457e-03             0             0
+naive            2048     1222.752      1674.91        n/a       256.00    0.000e+00    0.000e+00             0             0
+flash_tiled      2048       57.797     35434.19        n/a        20.12    7.749e-07    4.052e-03             0             0
+naive            4096     4764.853       859.63        n/a      1024.00    0.000e+00    0.000e+00             0             0
+flash_tiled      4096      215.940     18968.26        n/a        40.25    1.132e-06    5.081e-03             0             0
+naive            8192    18985.652       431.48        n/a      4096.00    0.000e+00    0.000e+00             0             0
+flash_tiled      8192      894.282      9160.42        n/a        80.50    1.177e-06    5.484e-03             0             0
