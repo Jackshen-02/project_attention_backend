@@ -47,6 +47,22 @@ class TensorOps:
     def matrix_multiply(a: Tensor, b: Tensor) -> Tensor:
         raise NotImplementedError("Not implemented in this assignment")
 
+    @staticmethod
+    def attn_softmax_fw(inp: Tensor, mask: Optional[Tensor] = None):
+        raise NotImplementedError("Fused attention softmax is not available for this backend")
+
+    @staticmethod
+    def attn_softmax_bw(*args, **kwargs):
+        raise NotImplementedError("Fused attention softmax backward is not available for this backend")
+
+    @staticmethod
+    def layernorm_fw(*args, **kwargs):
+        raise NotImplementedError("Fused layernorm is not available for this backend")
+
+    @staticmethod
+    def layernorm_bw(*args, **kwargs):
+        raise NotImplementedError("Fused layernorm backward is not available for this backend")
+
     cuda = False
 
 
