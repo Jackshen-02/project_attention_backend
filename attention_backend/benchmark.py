@@ -94,22 +94,6 @@ def _synchronize_device(device: torch.device) -> None:
         pass
 
 
-def _benchmark_cuda(fn, iters: int) -> tuple[list[float], Any]:
-    times_ms: list[float] = []
-    out = None
-    for _ in range(iters):
-        start = torch.cuda.Event(enable_timing=True)
-        end = torch.cuda.Event(enable_timing=True)
-        torch.cuda.synchronize()
-        start.record()
-        out = fn()
-        end.record()
-        torch.cuda.synchronize()
-        times_ms.append(start.elapsed_time(end))
-    assert out is not None
-    return times_ms, out
-
-
 def _benchmark_cuda_wallclock(fn, iters: int, device: torch.device) -> tuple[list[float], Any]:
     times_ms: list[float] = []
     out = None
@@ -175,14 +159,15 @@ def benchmark_backend(
 
     for _ in range(config.warmup_iters):
         _ = fn()
-    if device.type == "cuda" and backend == "flash_tiled":
-        torch.cuda.synchronize()
+    if device.type == "cuda":
+        _synchronize_device(device)
         torch.cuda.reset_peak_memory_stats(device)
-        times_ms, output = _benchmark_cuda(fn, config.measure_iters)
-        peak_memory = int(torch.cuda.max_memory_allocated(device))
-    elif device.type == "cuda" and backend == "naive":
         times_ms, output = _benchmark_cuda_wallclock(fn, config.measure_iters, device)
-        peak_memory = None
+        peak_memory = (
+            int(torch.cuda.max_memory_allocated(device))
+            if backend == "flash_tiled"
+            else None
+        )
     else:
         times_ms, output = _benchmark_cpu(fn, config.measure_iters)
         peak_memory = None
