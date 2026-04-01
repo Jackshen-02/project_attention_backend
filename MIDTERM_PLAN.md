@@ -54,7 +54,7 @@ For the midterm, the implementation lives entirely inside `project_attention_bac
 
 - Peak memory reporting is only partial on CUDA.
   - The MiniTorch `naive` path uses `pycuda`, so Torch allocator stats do not capture it.
-  - The `flash_tiled` path reports Torch-side peak memory for the tiled section only.
+  - In practice, the report should use `estimated_peak_intermediate_bytes` as the main memory metric.
 - On CPU, the script reports analytical peak intermediate bytes instead of allocator-level tensor memory.
 - KV cache work is intentionally only a scaffold for the midterm.
 - The tiled backend is benchmarked against the MiniTorch baseline through a focused attention-layer harness, not yet through the full decoder stack.
@@ -65,11 +65,12 @@ For the midterm, the implementation lives entirely inside `project_attention_bac
 - Decode benchmark with KV cache growth.
 - Paged KV cache allocator and page-table lookup path.
 - Dynamic batching / allocator fragmentation experiments.
-- PSC A100 benchmark sweep and profiling.
+- Full decoder-stack benchmark and deeper system profiling.
 
 ## Immediate Next Steps
 
-1. Run the benchmark on PSC A100 with `--device cuda`.
-2. Add CUDA peak memory results and crossover analysis.
-3. Implement a real paged KV cache for decode.
-4. Add deeper integration into the full decoder stack if needed for final-project experiments.
+1. Use the H100 prefill sweep in `results/prefill_h100_bs1_h8_d64.{json,txt}` for the midterm report.
+2. Add one or two follow-up sweeps if more evidence is needed:
+   batch-size scaling or a different tile size.
+3. Implement a real paged KV cache path for decode experiments.
+4. Decide whether the final project needs deeper integration into the full decoder stack or a custom CUDA kernel.

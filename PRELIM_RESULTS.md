@@ -1,46 +1,70 @@
 # Preliminary Results
 
-## Local Result Scope
+## Experiment Setup
 
-The code is now integrated at the MiniTorch module boundary: `naive` and `flash_tiled` are both selected from inside `minitorch/modules_transfomer.py`.
+- Platform: PSC Bridges-2 `H100 80GB HBM3`
+- Command: `python benchmark_attention_prefill.py --device cuda --batch-size 1 --num-heads 8 --head-dim 64 --seq-lens 128 512 1024 2048 4096 8192 --warmup-iters 5 --measure-iters 20 --block-size 128`
+- Workload: causal prefill attention with synthetic inputs
+- Model shape: `batch_size=1`, `num_heads=8`, `head_dim=64`, so `n_embd=512`
+- Compared backends:
+  - `naive`: restored MiniTorch baseline attention path
+  - `flash_tiled`: MiniTorch-integrated tiled attention backend
 
-However, the numeric table below is still from an earlier pre-integration CPU-only smoke test. It should be treated as archived sanity-check data only, not as the current report-quality result. The archived raw JSON from that earlier run is stored as `results/prefill_cpu_results_pre_minitorch_integration.json`.
+Raw result files:
 
-The next valid result set should be regenerated with the current MiniTorch-integrated benchmark on PSC.
+- `results/prefill_h100_bs1_h8_d64.json`
+- `results/prefill_h100_bs1_h8_d64.txt`
 
-## Archived Sanity-Check Table
+## Main Table
 
-| Backend | Seq Len | Latency (ms) | Tokens/s | Peak Memory (CUDA) | Estimated Peak Intermediates (MB) | Max Abs Err | Max Rel Err |
-| --- | ---: | ---: | ---: | --- | ---: | ---: | ---: |
-| naive | 128 | 0.158 | 809,695.65 | n/a | 0.50 | 0.0 | 0.0 |
-| flash_tiled | 128 | 0.211 | 607,957.40 | n/a | 0.63 | 4.47e-07 | 1.26e-03 |
-| naive | 512 | 1.476 | 346,863.95 | n/a | 8.00 | 0.0 | 0.0 |
-| flash_tiled | 512 | 2.574 | 198,902.54 | n/a | 2.52 | 5.96e-07 | 3.54e-03 |
-| naive | 1024 | 5.450 | 187,874.12 | n/a | 32.00 | 0.0 | 0.0 |
-| flash_tiled | 1024 | 12.271 | 83,447.08 | n/a | 5.03 | 4.77e-07 | 3.87e-03 |
-| naive | 2048 | 29.433 | 69,580.88 | n/a | 128.00 | 0.0 | 0.0 |
-| flash_tiled | 2048 | 62.090 | 32,984.29 | n/a | 10.06 | 4.77e-07 | 6.45e-03 |
+| Seq Len | Naive Latency (ms) | Flash Latency (ms) | Speedup | Naive Tok/s | Flash Tok/s | Naive Est. Intermediates (MB) | Flash Est. Intermediates (MB) | Memory Reduction | Max Abs Err | Max Rel Err |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 128 | 10.266 | 3.965 | 2.59x | 12,468.78 | 32,286.23 | 1.00 | 1.26 | 0.79x | 5.96e-07 | 2.67e-03 |
+| 512 | 70.625 | 9.824 | 7.19x | 7,249.59 | 52,118.25 | 16.00 | 5.03 | 3.18x | 5.66e-07 | 4.53e-03 |
+| 1024 | 316.684 | 21.467 | 14.75x | 3,233.51 | 47,702.03 | 64.00 | 10.06 | 6.36x | 7.75e-07 | 4.46e-03 |
+| 2048 | 1222.752 | 57.797 | 21.16x | 1,674.91 | 35,434.19 | 256.00 | 20.12 | 12.72x | 7.75e-07 | 4.05e-03 |
+| 4096 | 4764.853 | 215.940 | 22.07x | 859.63 | 18,968.26 | 1024.00 | 40.25 | 25.44x | 1.13e-06 | 5.08e-03 |
+| 8192 | 18985.652 | 894.282 | 21.23x | 431.48 | 9,160.42 | 4096.00 | 80.50 | 50.88x | 1.18e-06 | 5.48e-03 |
 
-## Observations
+## Key Observations
 
-- The archived numbers suggest the tiled algorithm is numerically stable and lowers intermediate-memory pressure.
-- The tiled path reduces estimated intermediate memory substantially once sequence length grows:
-  - `512`: `8.00 MB -> 2.52 MB`
-  - `1024`: `32.00 MB -> 5.03 MB`
-  - `2048`: `128.00 MB -> 10.06 MB`
-- On CPU, `flash_tiled` is slower than `naive` for larger sequences. This is expected here because the implementation is Python-level and the CPU run does not expose the GPU memory-bandwidth bottleneck that motivates FlashAttention-style designs.
+- The tiled backend is consistently faster than the MiniTorch naive baseline on H100 across the full sweep.
+- The speedup grows with sequence length, from `2.59x` at `128` tokens to about `21-22x` at `2048-8192`.
+- The estimated intermediate-memory gap also widens with sequence length:
+  - `2048`: `256.00 MB -> 20.12 MB`
+  - `4096`: `1024.00 MB -> 40.25 MB`
+  - `8192`: `4096.00 MB -> 80.50 MB`
+- This trend matches the expected motivation for FlashAttention-style tiling:
+  - the naive path materializes the full attention score matrix
+  - the tiled path keeps only block-sized score chunks plus online softmax statistics
+- Numerical agreement is clean in the H100 run:
+  - `output_nonfinite_count = 0`
+  - `reference_nonfinite_count = 0`
+  - `max_abs_err` stays around `1e-6`
+  - `max_rel_err` stays around `4e-3` to `5e-3`
 
-## Current Integration Status
+## Interpretation
 
-- `naive` is the MiniTorch attention backend.
-- `flash_tiled` is now selected from inside MiniTorch as an alternate backend.
-- The benchmark compares those two MiniTorch-selected attention paths on the same projected `Q/K/V`.
-- The numbers for this integrated version still need to be regenerated on PSC.
+- The current implementation is already strong enough for a midterm claim that tiled attention substantially improves long-context prefill performance.
+- The biggest wins appear in the long-sequence regime, which is the regime the project proposal cares about most.
+- At very small sequence length (`128`), the tiled path is still faster, but its estimated intermediate memory is slightly larger than naive because the score matrix is still small and the tiled path pays extra fixed overhead for block statistics and output buffers.
+- For larger sequence lengths, the tiled backend's memory footprint scales much more favorably than naive attention.
 
-## What Needs GPU Results
+## Metric Notes
 
-- Regenerate the sweep with the current MiniTorch-integrated benchmark
-- Real or at least more defensible peak-memory reporting for the integrated backends
-- Latency crossover point where `flash_tiled` overtakes `naive`
-- Larger-sequence sweeps such as `4096` and `8192`
-- Batch-size scaling under prefill workloads
+- `peak_memory_bytes` is `null` in these runs and should not be used as the main memory figure in the report.
+- Reason: this benchmark mixes MiniTorch, `pycuda`, and Torch in one process, so Torch allocator peak statistics are not a reliable end-to-end memory signal here.
+- The report should instead use `estimated_peak_intermediate_bytes` as the primary memory comparison metric.
+- `max_abs_err` and `max_rel_err` are backend-output differences measured against the MiniTorch naive reference.
+
+## Report-Ready Summary
+
+Suggested short writeup for the midterm:
+
+`On PSC Bridges-2 H100, our MiniTorch-integrated tiled attention backend outperformed the restored naive MiniTorch baseline across all tested prefill sequence lengths from 128 to 8192. The speedup grew with sequence length, reaching about 22x at 4096 tokens and 21x at 8192 tokens. The estimated peak attention intermediates were also substantially reduced, from 1.0 GB to 40.25 MB at 4096 tokens and from 4.0 GB to 80.50 MB at 8192 tokens. Numerical agreement remained strong, with max absolute error around 1e-6 and no non-finite outputs in either backend.`
+
+## Remaining Caveats
+
+- `flash_tiled` is integrated at the MiniTorch module boundary, but internally it still uses a project-local Torch implementation rather than a custom fused CUDA kernel.
+- The current benchmark focuses on the attention layer under prefill, not yet the full decoder stack.
+- KV cache and decode-side paging experiments remain future work for the final project.
