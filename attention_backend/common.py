@@ -25,16 +25,48 @@ def causal_mask(
     return k_positions > q_positions
 
 
-def max_error(candidate: torch.Tensor, reference: torch.Tensor) -> tuple[float, float]:
-    delta = (candidate - reference).abs()
+@dataclass(frozen=True)
+class ErrorStats:
+    max_abs: float | None
+    max_rel: float | None
+    candidate_nonfinite_count: int
+    reference_nonfinite_count: int
+
+
+def max_error(candidate: torch.Tensor, reference: torch.Tensor) -> ErrorStats:
+    candidate_finite = torch.isfinite(candidate)
+    reference_finite = torch.isfinite(reference)
+    finite_mask = candidate_finite & reference_finite
+
+    candidate_nonfinite_count = int((~candidate_finite).sum().item())
+    reference_nonfinite_count = int((~reference_finite).sum().item())
+
+    if not finite_mask.any():
+        return ErrorStats(
+            max_abs=None,
+            max_rel=None,
+            candidate_nonfinite_count=candidate_nonfinite_count,
+            reference_nonfinite_count=reference_nonfinite_count,
+        )
+
+    candidate_finite_values = candidate[finite_mask]
+    reference_finite_values = reference[finite_mask]
+    delta = (candidate_finite_values - reference_finite_values).abs()
     max_abs = float(delta.max().item())
-    rel_mask = reference.abs() > 1e-5
+
+    rel_mask = reference_finite_values.abs() > 1e-5
     if rel_mask.any():
-        rel = delta[rel_mask] / reference.abs()[rel_mask].clamp_min(1e-5)
+        rel = delta[rel_mask] / reference_finite_values.abs()[rel_mask].clamp_min(1e-5)
         max_rel = float(rel.max().item())
     else:
         max_rel = 0.0
-    return max_abs, max_rel
+
+    return ErrorStats(
+        max_abs=max_abs,
+        max_rel=max_rel,
+        candidate_nonfinite_count=candidate_nonfinite_count,
+        reference_nonfinite_count=reference_nonfinite_count,
+    )
 
 
 def median_ms(values: Iterable[float]) -> float:

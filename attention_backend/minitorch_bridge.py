@@ -26,12 +26,13 @@ def build_shared_attention_problem(
 ) -> SharedAttentionWeights:
     n_embd = num_heads * head_dim
     rng = np.random.default_rng(seed)
+    proj_std = 1.0 / np.sqrt(n_embd)
     return SharedAttentionWeights(
         x=rng.standard_normal((batch_size, seq_len, n_embd), dtype=np.float32),
-        w_q=rng.standard_normal((n_embd, n_embd), dtype=np.float32),
-        w_k=rng.standard_normal((n_embd, n_embd), dtype=np.float32),
-        w_v=rng.standard_normal((n_embd, n_embd), dtype=np.float32),
-        w_out=rng.standard_normal((n_embd, n_embd), dtype=np.float32),
+        w_q=(rng.standard_normal((n_embd, n_embd), dtype=np.float32) * proj_std).astype(np.float32),
+        w_k=(rng.standard_normal((n_embd, n_embd), dtype=np.float32) * proj_std).astype(np.float32),
+        w_v=(rng.standard_normal((n_embd, n_embd), dtype=np.float32) * proj_std).astype(np.float32),
+        w_out=(rng.standard_normal((n_embd, n_embd), dtype=np.float32) * proj_std).astype(np.float32),
     )
 
 

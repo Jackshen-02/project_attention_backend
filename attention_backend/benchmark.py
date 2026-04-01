@@ -41,8 +41,10 @@ class BenchmarkResult:
     tokens_per_second: float
     peak_memory_bytes: int | None
     estimated_peak_intermediate_bytes: int
-    max_abs_error: float
-    max_rel_error: float
+    max_abs_error: float | None
+    max_rel_error: float | None
+    output_nonfinite_count: int
+    reference_nonfinite_count: int
     device: str
     dtype: str
     block_size: int
@@ -163,11 +165,8 @@ def benchmark_backend(
         _synchronize_device(device)
         torch.cuda.reset_peak_memory_stats(device)
         times_ms, output = _benchmark_cuda_wallclock(fn, config.measure_iters, device)
-        peak_memory = (
-            int(torch.cuda.max_memory_allocated(device))
-            if backend == "flash_tiled"
-            else None
-        )
+        measured_peak = int(torch.cuda.max_memory_allocated(device))
+        peak_memory = measured_peak if backend == "flash_tiled" and measured_peak > 0 else None
     else:
         times_ms, output = _benchmark_cpu(fn, config.measure_iters)
         peak_memory = None
@@ -175,10 +174,16 @@ def benchmark_backend(
     if backend == "naive":
         max_abs_error = 0.0
         max_rel_error = 0.0
+        output_nonfinite_count = 0
+        reference_nonfinite_count = 0
     else:
         output_t = torch.tensor(output.to_numpy(), dtype=torch.float32)
         ref_t = torch.tensor(reference.to_numpy(), dtype=torch.float32)
-        max_abs_error, max_rel_error = max_error(output_t, ref_t)
+        error_stats = max_error(output_t, ref_t)
+        max_abs_error = error_stats.max_abs
+        max_rel_error = error_stats.max_rel
+        output_nonfinite_count = error_stats.candidate_nonfinite_count
+        reference_nonfinite_count = error_stats.reference_nonfinite_count
     latency_ms = median_ms(times_ms)
     tokens_per_second = (
         config.batch_size * seq_len / (latency_ms / 1000.0)
@@ -195,6 +200,8 @@ def benchmark_backend(
         estimated_peak_intermediate_bytes=estimated_peak,
         max_abs_error=max_abs_error,
         max_rel_error=max_rel_error,
+        output_nonfinite_count=output_nonfinite_count,
+        reference_nonfinite_count=reference_nonfinite_count,
         device=str(device),
         dtype=config.dtype,
         block_size=config.block_size,

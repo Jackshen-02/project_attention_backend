@@ -29,6 +29,12 @@ def format_megabytes(value: int | None) -> str:
     return f"{value / (1024 ** 2):.2f}"
 
 
+def format_error(value: float | None) -> str:
+    if value is None:
+        return "n/a"
+    return f"{value:.3e}"
+
+
 def main() -> None:
     args = build_parser().parse_args()
     config = BenchmarkConfig(
@@ -50,7 +56,8 @@ def main() -> None:
     header = (
         f"{'backend':<12} {'seq_len':>8} {'latency_ms':>12} "
         f"{'tok/s':>12} {'peak_mb':>10} {'est_peak_mb':>12} "
-        f"{'max_abs_err':>12} {'max_rel_err':>12}"
+        f"{'max_abs_err':>12} {'max_rel_err':>12} "
+        f"{'out_nonfinite':>13} {'ref_nonfinite':>13}"
     )
     print(header)
     print("-" * len(header))
@@ -59,7 +66,8 @@ def main() -> None:
             f"{result.backend:<12} {result.seq_len:>8d} {result.latency_ms:>12.3f} "
             f"{result.tokens_per_second:>12.2f} {format_megabytes(result.peak_memory_bytes):>10} "
             f"{format_megabytes(result.estimated_peak_intermediate_bytes):>12} "
-            f"{result.max_abs_error:>12.3e} {result.max_rel_error:>12.3e}"
+            f"{format_error(result.max_abs_error):>12} {format_error(result.max_rel_error):>12} "
+            f"{result.output_nonfinite_count:>13d} {result.reference_nonfinite_count:>13d}"
         )
 
     if args.output_json is not None:

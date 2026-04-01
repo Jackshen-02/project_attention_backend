@@ -116,6 +116,8 @@ python benchmark_attention_prefill.py \
 - `flash_tiled` is now selected from inside `minitorch/modules_transfomer.py`, so the comparison boundary is the MiniTorch attention module.
 - The current optimized path is forward-only and Python-level. On CPU it may be slower than naive attention because the memory savings do not offset Python loop overhead.
 - The intended evaluation environment is PSC GPU, where the reduced intermediate footprint should matter much more.
+- `peak_memory_bytes` is a best-effort Torch allocator measurement. Because the project mixes MiniTorch, `pycuda`, and Torch in one process, this field may be `null` when the runtime signal is not trustworthy.
+- `estimated_peak_intermediate_bytes` is the more stable memory-comparison field for the midterm report because it tracks the algorithm's attention intermediates directly.
 
 ## Result Gathering
 
@@ -132,6 +134,8 @@ The benchmark already prints a table and writes a JSON file.
   - `estimated_peak_intermediate_bytes`
   - `max_abs_error`
   - `max_rel_error`
+  - `output_nonfinite_count`
+  - `reference_nonfinite_count`
 
 You can inspect a result file with:
 
@@ -148,12 +152,13 @@ from pathlib import Path
 
 path = Path("results/prefill_a100_bs1_h8_d64.json")
 rows = json.loads(path.read_text())
-print("backend,seq_len,latency_ms,tokens_per_second,peak_memory_bytes,max_abs_error,max_rel_error")
+print("backend,seq_len,latency_ms,tokens_per_second,peak_memory_bytes,max_abs_error,max_rel_error,output_nonfinite_count,reference_nonfinite_count")
 for row in rows:
     print(
         f"{row['backend']},{row['seq_len']},{row['latency_ms']:.6f},"
         f"{row['tokens_per_second']:.2f},{row['peak_memory_bytes']},"
-        f"{row['max_abs_error']:.3e},{row['max_rel_error']:.3e}"
+        f"{row['max_abs_error']},{row['max_rel_error']},"
+        f"{row['output_nonfinite_count']},{row['reference_nonfinite_count']}"
     )
 PY
 ```
