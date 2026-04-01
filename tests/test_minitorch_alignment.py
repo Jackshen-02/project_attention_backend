@@ -51,7 +51,7 @@ def test_minitorch_naive_attention_matches_torch_reference() -> None:
     k = (x_t.view(-1, 8) @ w_k).view(2, 7, 2, 4).permute(0, 2, 1, 3)
     v = (x_t.view(-1, 8) @ w_v).view(2, 7, 2, 4).permute(0, 2, 1, 3)
     scores = torch.matmul(q, k.transpose(-1, -2)) / (4 ** 0.5)
-    mask = torch.triu(torch.ones(7, 7, dtype=torch.bool), diagonal=1)
+    mask = torch.triu(torch.ones(7, 7, dtype=torch.bool, device=device), diagonal=1)
     scores = scores.masked_fill(mask.view(1, 1, 7, 7), float("-inf"))
     attn = torch.softmax(scores, dim=-1)
     out = torch.matmul(attn, v).permute(0, 2, 1, 3).contiguous().view(2, 7, 8)
