@@ -210,9 +210,28 @@ def benchmark_backend(
 
 def benchmark_suite(config: BenchmarkConfig) -> list[BenchmarkResult]:
     results: list[BenchmarkResult] = []
-    for seq_len in config.seq_lens:
-        for backend in ("naive", "flash_tiled"):
-            results.append(benchmark_backend(backend, seq_len, config))
+    cases = [
+        (backend, seq_len)
+        for seq_len in config.seq_lens
+        for backend in ("naive", "flash_tiled")
+    ]
+    total_cases = len(cases)
+    for index, (backend, seq_len) in enumerate(cases, start=1):
+        print(
+            f"[{index}/{total_cases}] backend={backend} seq_len={seq_len}",
+            flush=True,
+        )
+        if config.device == "cuda":
+            print(
+                f"  warmup={config.warmup_iters} measure={config.measure_iters}",
+                flush=True,
+            )
+        else:
+            print(
+                f"  measure={config.measure_iters}",
+                flush=True,
+            )
+        results.append(benchmark_backend(backend, seq_len, config))
     return results
 
 
