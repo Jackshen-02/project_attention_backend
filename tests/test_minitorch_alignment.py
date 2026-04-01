@@ -7,7 +7,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
-import numba
+try:
+    from numba import cuda as numba_cuda
+except Exception:  # pragma: no cover
+    numba_cuda = None
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -17,7 +20,7 @@ from attention_backend.minitorch_bridge import build_minitorch_attention_layer, 
 
 
 pytestmark = pytest.mark.skipif(
-    not numba.cuda.is_available() or not torch.cuda.is_available(),
+    numba_cuda is None or not numba_cuda.is_available() or not torch.cuda.is_available(),
     reason="MiniTorch attention alignment is validated on CUDA backends only",
 )
 
