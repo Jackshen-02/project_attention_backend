@@ -1,0 +1,8 @@
+[1/2] decode_backend=contiguous batch_size=4 decode_steps=16
+  initial_lens=[512, 1024, 2048, 4096] page_size=128 warmup=1 measure=3
+[2/2] decode_backend=paged batch_size=4 decode_steps=16
+  initial_lens=[512, 1024, 2048, 4096] page_size=128 warmup=1 measure=3
+backend       batch decode_steps  lat_ms/step        tok/s   alloc_mb  active_mb     util pages_used  max_abs_err  max_rel_err
+------------------------------------------------------------------------------------------------------------------------------
+contiguous        4           16        9.087       440.17      64.25      30.25    0.471        n/a    0.000e+00    0.000e+00
+paged             4           16       17.210       232.43      32.00      30.25    0.945         64    1.490e-07    3.562e-03

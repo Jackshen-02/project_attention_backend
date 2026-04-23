@@ -1,0 +1,4 @@
+[1/2] decode_backend=contiguous batch_size=4 decode_steps=64
+  initial_lens=[512, 1024, 2048, 4096] page_size=128 warmup=5 measure=20
+[2/2] decode_backend=paged batch_size=4 decode_steps=64
+  initial_lens=[512, 1024, 2048, 4096] page_size=128 warmup=5 measure=20

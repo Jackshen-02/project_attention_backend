@@ -1,0 +1,50 @@
+[
+  {
+    "backend": "contiguous",
+    "batch_size": 4,
+    "initial_lens": [
+      512,
+      1024,
+      2048,
+      4096
+    ],
+    "decode_steps": 16,
+    "latency_ms_per_step": 9.08742787578376,
+    "tokens_per_second": 440.1685553575866,
+    "allocated_cache_bytes": 67371008,
+    "active_cache_bytes": 31719424,
+    "cache_utilization": 0.4708171206225681,
+    "pages_used": null,
+    "max_abs_error": 0.0,
+    "max_rel_error": 0.0,
+    "output_nonfinite_count": 0,
+    "reference_nonfinite_count": 0,
+    "device": "cuda",
+    "dtype": "float32",
+    "page_size": 128
+  },
+  {
+    "backend": "paged",
+    "batch_size": 4,
+    "initial_lens": [
+      512,
+      1024,
+      2048,
+      4096
+    ],
+    "decode_steps": 16,
+    "latency_ms_per_step": 17.209516186994733,
+    "tokens_per_second": 232.4295440114004,
+    "allocated_cache_bytes": 33554432,
+    "active_cache_bytes": 31719424,
+    "cache_utilization": 0.9453125,
+    "pages_used": 64,
+    "max_abs_error": 1.4901161193847656e-07,
+    "max_rel_error": 0.0035622648429125547,
+    "output_nonfinite_count": 0,
+    "reference_nonfinite_count": 0,
+    "device": "cuda",
+    "dtype": "float32",
+    "page_size": 128
+  }
+]
