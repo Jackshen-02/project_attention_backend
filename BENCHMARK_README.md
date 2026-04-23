@@ -126,6 +126,19 @@ python benchmark_decode_kv.py \
   --output-json results/decode_h100_bs4_p64.json | tee results/decode_h100_bs4_p64.txt
 ```
 
+Batch submission on PSC:
+
+```bash
+sbatch jobs/run_h100_decode.sbatch
+```
+
+This script:
+
+- activates the repo-local conda environment
+- runs the main correctness tests
+- runs the H100 decode benchmark
+- writes all outputs under `results/decode/<timestamp>/`
+
 ## Metrics
 
 - `latency_ms`

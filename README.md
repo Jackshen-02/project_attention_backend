@@ -16,6 +16,7 @@ minitorch/                  Restored MiniTorch codebase with backend selector in
 attention_backend/          Project tiled backend, benchmark code, and bridge utilities
 benchmark_attention_prefill.py
 benchmark_decode_kv.py
+jobs/run_h100_decode.sbatch
 tests/test_attention_backends.py
 tests/test_minitorch_alignment.py
 tests/test_decode_kv.py
@@ -87,5 +88,13 @@ This benchmark compares:
 
 - `contiguous`
 - `paged`
+
+Submit the decode benchmark as a batch job on PSC:
+
+```bash
+sbatch jobs/run_h100_decode.sbatch
+```
+
+The script writes a timestamped result bundle under `results/decode/<run_tag>/`.
 
 For PSC GPU commands and result collection, see `BENCHMARK_README.md`.

@@ -8,3 +8,4 @@ __pycache__/
 .conda_pkgs/
 .pip_cache/
 *.egg-info/
+slurm-*.out
