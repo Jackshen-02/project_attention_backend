@@ -18,7 +18,7 @@ from .tensor_functions import tensor_from_numpy
 
 import ctypes
 import numpy as np
-import pycuda.autoinit
+import pycuda.autoprimaryctx  # Use the primary CUDA context so PyCUDA and Numba interoperate.
 import pycuda.driver as cuda
 import torch
 
