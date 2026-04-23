@@ -92,6 +92,35 @@ def make_minitorch_input(shared: SharedAttentionWeights, backend):
     return minitorch.tensor_from_numpy(shared.x, backend=backend)
 
 
+def make_minitorch_decode_input(
+    shared: SharedAttentionWeights,
+    positions: list[int] | tuple[int, ...],
+    backend,
+):
+    minitorch = import_module("minitorch")
+    batch_size = shared.x.shape[0]
+    if len(positions) != batch_size:
+        raise ValueError(f"Expected {batch_size} decode positions, got {len(positions)}.")
+    x_step = np.stack([shared.x[batch_idx, pos, :] for batch_idx, pos in enumerate(positions)], axis=0)
+    return minitorch.tensor_from_numpy(x_step[:, None, :], backend=backend)
+
+
+def populate_cache_from_prefix(
+    layer,
+    shared: SharedAttentionWeights,
+    prefix_lens: list[int] | tuple[int, ...],
+    backend,
+    kv_cache,
+) -> None:
+    max_prefix_len = max(prefix_lens)
+    if max_prefix_len == 0:
+        return
+    minitorch = import_module("minitorch")
+    prefix_x = minitorch.tensor_from_numpy(shared.x[:, :max_prefix_len, :], backend=backend)
+    _, k_t, v_t = layer._project_to_torch_qkv(prefix_x)
+    kv_cache.append(k_t, v_t, valid_lens=prefix_lens)
+
+
 def torch_project_qkv(
     shared: SharedAttentionWeights,
     *,

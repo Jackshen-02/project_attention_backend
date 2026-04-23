@@ -57,6 +57,26 @@ class MultiHeadAttention(Module):
         else:
             self.attention_backend = attention_backend
 
+    def _torch_device(self) -> torch.device:
+        if self.backend is not None and self.backend.cuda and torch.cuda.is_available():
+            return torch.device("cuda")
+        return torch.device("cpu")
+
+    def _project_to_torch_qkv(self, x):
+        q, kT, v = self.project_to_query_key_value(x)
+        return self._qkv_to_torch(q, kT, v)
+
+    def _qkv_to_torch(self, q, kT, v):
+        device = self._torch_device()
+        q_t = torch.tensor(q.to_numpy(), dtype=torch.float32, device=device)
+        k_t = torch.tensor(
+            kT.permute(0, 1, 3, 2).contiguous().to_numpy(),
+            dtype=torch.float32,
+            device=device,
+        )
+        v_t = torch.tensor(v.to_numpy(), dtype=torch.float32, device=device)
+        return q_t, k_t, v_t
+
     def create_causal_mask(self, bs, nh, seq_len):
         """
         return a 1x1xTxt triangular causal mask for Q @ K^T (which will get broadcasted to BxHxTxT)
@@ -133,14 +153,7 @@ class MultiHeadAttention(Module):
         from attention_backend.flash import FlashAttentionConfig, flash_attention_tiled
 
         batch_size, num_head, queries_len, q_dim = q.shape
-        device = torch.device("cuda" if self.backend.cuda and torch.cuda.is_available() else "cpu")
-        q_t = torch.tensor(q.to_numpy(), dtype=torch.float32, device=device)
-        k_t = torch.tensor(
-            kT.permute(0, 1, 3, 2).contiguous().to_numpy(),
-            dtype=torch.float32,
-            device=device,
-        )
-        v_t = torch.tensor(v.to_numpy(), dtype=torch.float32, device=device)
+        q_t, k_t, v_t = self._qkv_to_torch(q, kT, v)
 
         out_t = flash_attention_tiled(
             q_t,
@@ -151,6 +164,29 @@ class MultiHeadAttention(Module):
         out_np = out_t.detach().cpu().numpy().astype(datatype)
         out = tensor_from_numpy(out_np, backend=self.backend)
         return out.permute(0, 2, 1, 3).contiguous().view(batch_size, queries_len, num_head * q_dim)
+
+    def decode_step(self, x, kv_cache: Any, *, cache_backend: str = "contiguous"):
+        from attention_backend.paged import decode_attention_contiguous, decode_attention_paged
+
+        batch_size, seq_len, n_embd = x.shape
+        if seq_len != 1:
+            raise ValueError("decode_step expects x with shape (batch_size, 1, n_embd).")
+
+        q_t, k_t, v_t = self._project_to_torch_qkv(x)
+        kv_cache.append(k_t, v_t)
+
+        if cache_backend == "contiguous":
+            out_t = decode_attention_contiguous(q_t, kv_cache)
+        elif cache_backend == "paged":
+            out_t = decode_attention_paged(q_t, kv_cache)
+        else:
+            raise ValueError(f"Unknown decode cache backend: {cache_backend}")
+
+        out_np = out_t.detach().cpu().numpy().astype(datatype)
+        out = tensor_from_numpy(out_np, backend=self.backend)
+        result = out.permute(0, 2, 1, 3).contiguous().view(batch_size, seq_len, self.n_embd)
+        result = self.out_projection(result.view(batch_size * seq_len, n_embd)).view(batch_size, seq_len, n_embd)
+        return result
 
     def forward(self, x):
         """Computes MultiHeadAttention with causal masking if needed. 

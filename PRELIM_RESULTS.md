@@ -16,15 +16,16 @@
   - backend selector in `minitorch/modules_transfomer.py`
   - tiled attention backend in `attention_backend/flash.py`
   - benchmark harness in `benchmark_attention_prefill.py`
+  - contiguous and paged decode cache backends
+  - decode benchmark harness in `benchmark_decode_kv.py`
   - correctness tests in `tests/`
   - formal H100 sweep in `results/prefill_h100_bs1_h8_d64.{json,txt}`
 - Partial:
   - runtime CUDA peak memory is not a reliable report metric in this mixed MiniTorch/PyCUDA/Torch setup
-  - KV cache work is only a scaffold for now
+  - decode results have not been regenerated on PSC yet
 - Not done yet:
-  - paged KV cache experiments
-  - decode-side benchmarking
   - custom fused CUDA attention kernel
+  - H100 decode-side experiment sweep for contiguous vs paged KV cache
 
 ## Experiment Setup
 
@@ -93,4 +94,4 @@ Suggested short writeup for the midterm:
 
 - `flash_tiled` is integrated at the MiniTorch module boundary, but internally it still uses a project-local Torch implementation rather than a custom fused CUDA kernel.
 - The current benchmark focuses on the attention layer under prefill, not yet the full decoder stack.
-- KV cache and decode-side paging experiments remain future work for the final project.
+- The decode-side contiguous and paged KV cache paths are now implemented, but their formal H100 result sweep still needs to be run.
