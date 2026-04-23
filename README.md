@@ -1,13 +1,13 @@
 # Efficient Attention Backends for LLM Inference in MiniTorch
 
-Minimal midterm codebase for the CMU 11-868 project:
+Final project codebase for CMU 11-868:
 
-- restored HW4 MiniTorch base
-- MiniTorch naive attention baseline
-- MiniTorch-integrated `flash_tiled` attention backend
-- contiguous and paged KV cache decode backends
+- restored HW4 MiniTorch attention stack as the system baseline
+- MiniTorch `naive` attention baseline
+- MiniTorch-integrated `flash_tiled` prefill backend
+- `contiguous` and `paged` decode-side KV cache backends
 - prefill and decode benchmark harnesses
-- PSC GPU run instructions
+- H100 result summaries and plotting utilities
 
 ## Repo Layout
 
@@ -16,14 +16,26 @@ minitorch/                  Restored MiniTorch codebase with backend selector in
 attention_backend/          Project tiled backend, benchmark code, and bridge utilities
 benchmark_attention_prefill.py
 benchmark_decode_kv.py
-jobs/run_h100_decode.sbatch
+plot_decode_tradeoff.py
 tests/test_attention_backends.py
 tests/test_minitorch_alignment.py
 tests/test_decode_kv.py
 results/                    Saved benchmark JSON outputs
-BENCHMARK_README.md
-PRELIM_RESULTS.md
+FINAL_RESULTS.md
 ```
+
+## Project Story
+
+The project has two separate inference-side optimization stories:
+
+1. `Prefill`
+   - compare restored MiniTorch `naive` attention against `flash_tiled`
+   - focus on long-context prefill latency and intermediate-memory reduction
+2. `Decode`
+   - compare `contiguous` KV cache against `paged`
+   - focus on decode-time cache allocation efficiency and page-size tradeoffs
+
+The recommended report summary, result tables, and interpretation are in [FINAL_RESULTS.md](FINAL_RESULTS.md).
 
 ## Quick Start
 
@@ -39,62 +51,65 @@ If you plan to run the MiniTorch CUDA baseline on GPU, also install:
 pip install pycuda
 ```
 
-Run local correctness test:
+Run the full correctness suite:
 
 ```bash
-python -m pytest tests/test_attention_backends.py -q
+python -m pytest tests/test_attention_backends.py tests/test_minitorch_alignment.py tests/test_decode_kv.py -q
 ```
 
-MiniTorch alignment test after `numba` is installed:
+## Main Benchmarks
 
-```bash
-python -m pytest tests/test_minitorch_alignment.py -q
-```
-
-Run a CPU benchmark:
+Prefill benchmark:
 
 ```bash
 python benchmark_attention_prefill.py \
-  --device cpu \
+  --device cuda \
   --batch-size 1 \
-  --num-heads 4 \
+  --num-heads 8 \
   --head-dim 64 \
-  --seq-lens 128 512 1024 2048 \
-  --warmup-iters 3 \
-  --measure-iters 7 \
-  --output-json results/prefill_cpu_results.json
+  --seq-lens 128 512 1024 2048 4096 8192 \
+  --warmup-iters 5 \
+  --measure-iters 20 \
+  --block-size 128 \
+  --output-json results/prefill_h100_bs1_h8_d64.json | tee results/prefill_h100_bs1_h8_d64.txt
 ```
 
-This benchmark compares the MiniTorch `self_attention` backend selected as:
+This compares:
 
 - `naive`
 - `flash_tiled`
 
-Run a decode-side KV cache benchmark:
+Decode benchmark:
 
 ```bash
 python benchmark_decode_kv.py \
-  --device cpu \
-  --initial-lens 64 128 192 256 \
-  --decode-steps 16 \
-  --num-heads 4 \
+  --device cuda \
+  --initial-lens 512 1024 2048 4096 \
+  --decode-steps 64 \
+  --num-heads 8 \
   --head-dim 64 \
-  --page-size 32 \
-  --warmup-iters 1 \
-  --measure-iters 3
+  --page-size 256 \
+  --warmup-iters 5 \
+  --measure-iters 20 \
+  --output-json results/decode/decode_h100_bs4_p256.json | tee results/decode/decode_h100_bs4_p256.txt
 ```
 
-This benchmark compares:
+This compares:
 
 - `contiguous`
 - `paged`
 
-Submit the decode benchmark as a batch job on PSC:
+Decode page-size tradeoff plot:
 
 ```bash
-sbatch jobs/run_h100_decode.sbatch
+python plot_decode_tradeoff.py
 ```
 
-The script writes a timestamped result bundle under `results/decode/<run_tag>/`.
+This writes:
 
-For PSC GPU commands and result collection, see `BENCHMARK_README.md`.
+- `results/decode/decode_tradeoff_dual_axis.png`
+
+## Documentation
+
+- [FINAL_RESULTS.md](FINAL_RESULTS.md)
+  - final result tables, metric definitions, and report-ready interpretation
