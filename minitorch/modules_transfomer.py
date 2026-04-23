@@ -97,6 +97,7 @@ class MultiHeadAttention(Module):
             V   : The Value Matrix (batch_size x num_heads x seq_len x attn_hidden_dim)
         """
         batch_size, seq_len, n_embd = x.shape
+        x = x.contiguous()
         
         # COPY FROM ASSIGN2_4
         x_2d = x.view(batch_size * seq_len, n_embd)
