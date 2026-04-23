@@ -89,7 +89,7 @@ def build_minitorch_attention_layer(
 
 def make_minitorch_input(shared: SharedAttentionWeights, backend):
     minitorch = import_module("minitorch")
-    return minitorch.tensor_from_numpy(shared.x, backend=backend)
+    return minitorch.tensor_from_numpy(np.ascontiguousarray(shared.x), backend=backend)
 
 
 def make_minitorch_decode_input(
@@ -102,7 +102,8 @@ def make_minitorch_decode_input(
     if len(positions) != batch_size:
         raise ValueError(f"Expected {batch_size} decode positions, got {len(positions)}.")
     x_step = np.stack([shared.x[batch_idx, pos, :] for batch_idx, pos in enumerate(positions)], axis=0)
-    return minitorch.tensor_from_numpy(x_step[:, None, :], backend=backend)
+    x_step = np.ascontiguousarray(x_step[:, None, :])
+    return minitorch.tensor_from_numpy(x_step, backend=backend)
 
 
 def populate_cache_from_prefix(
@@ -116,7 +117,10 @@ def populate_cache_from_prefix(
     if max_prefix_len == 0:
         return
     minitorch = import_module("minitorch")
-    prefix_x = minitorch.tensor_from_numpy(shared.x[:, :max_prefix_len, :], backend=backend)
+    prefix_x = minitorch.tensor_from_numpy(
+        np.ascontiguousarray(shared.x[:, :max_prefix_len, :]),
+        backend=backend,
+    )
     _, k_t, v_t = layer._project_to_torch_qkv(prefix_x)
     kv_cache.append(k_t, v_t, valid_lens=prefix_lens)
 
