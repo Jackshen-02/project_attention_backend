@@ -57,17 +57,19 @@ class MultiHeadAttention(Module):
         else:
             self.attention_backend = attention_backend
 
-    def _torch_device(self) -> torch.device:
-        if self.backend is not None and self.backend.cuda and torch.cuda.is_available():
+    def _torch_device(self, preferred_device: Optional[torch.device] = None) -> torch.device:
+        if preferred_device is not None:
+            return preferred_device
+        if self.backend is not None and getattr(self.backend, "cuda", False) and torch.cuda.is_available():
             return torch.device("cuda")
         return torch.device("cpu")
 
-    def _project_to_torch_qkv(self, x):
+    def _project_to_torch_qkv(self, x, preferred_device: Optional[torch.device] = None):
         q, kT, v = self.project_to_query_key_value(x)
-        return self._qkv_to_torch(q, kT, v)
+        return self._qkv_to_torch(q, kT, v, preferred_device=preferred_device)
 
-    def _qkv_to_torch(self, q, kT, v):
-        device = self._torch_device()
+    def _qkv_to_torch(self, q, kT, v, preferred_device: Optional[torch.device] = None):
+        device = self._torch_device(preferred_device)
         q_t = torch.tensor(q.to_numpy(), dtype=torch.float32, device=device)
         k_t = torch.tensor(
             kT.permute(0, 1, 3, 2).contiguous().to_numpy(),
@@ -173,7 +175,8 @@ class MultiHeadAttention(Module):
         if seq_len != 1:
             raise ValueError("decode_step expects x with shape (batch_size, 1, n_embd).")
 
-        q_t, k_t, v_t = self._project_to_torch_qkv(x)
+        cache_device = getattr(getattr(kv_cache, "keys", None), "device", None)
+        q_t, k_t, v_t = self._project_to_torch_qkv(x, preferred_device=cache_device)
         kv_cache.append(k_t, v_t)
 
         if cache_backend == "contiguous":

@@ -53,6 +53,8 @@ fn_map = {
 THREADS_PER_BLOCK = 32
 
 class CudaKernelOps(TensorOps):
+    cuda = True
+
     @staticmethod
     def map(fn: Callable[[float], float]) -> MapProto:
         "See `tensor_ops.py`"
