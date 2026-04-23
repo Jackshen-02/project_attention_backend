@@ -3,6 +3,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 import torch
+try:
+    from numba import cuda as numba_cuda
+except Exception:  # pragma: no cover
+    numba_cuda = None
 
 from attention_backend.kv_cache import ContiguousKVCache, PagedKVCache
 from attention_backend.minitorch_bridge import (
@@ -15,8 +19,10 @@ from attention_backend.minitorch_bridge import (
 
 
 def test_contiguous_decode_matches_full_forward_last_token() -> None:
-    pytest.importorskip("numba")
-    minitorch, backend = make_minitorch_backend(torch.device("cpu"))
+    if numba_cuda is None or not numba_cuda.is_available() or not torch.cuda.is_available():
+        pytest.skip("MiniTorch decode alignment is validated on CUDA backends only")
+    device = torch.device("cuda")
+    minitorch, backend = make_minitorch_backend(device)
     shared = build_shared_attention_problem(
         batch_size=1,
         seq_len=6,
@@ -32,7 +38,7 @@ def test_contiguous_decode_matches_full_forward_last_token() -> None:
         num_heads=2,
         head_dim=4,
         max_cache_len=6,
-        device=torch.device("cpu"),
+        device=device,
         dtype=torch.float32,
     )
     populate_cache_from_prefix(layer, shared, [prefix_len], backend, cache)
@@ -46,8 +52,10 @@ def test_contiguous_decode_matches_full_forward_last_token() -> None:
 
 
 def test_paged_decode_matches_contiguous_decode() -> None:
-    pytest.importorskip("numba")
-    _, backend = make_minitorch_backend(torch.device("cpu"))
+    if numba_cuda is None or not numba_cuda.is_available() or not torch.cuda.is_available():
+        pytest.skip("MiniTorch decode alignment is validated on CUDA backends only")
+    device = torch.device("cuda")
+    _, backend = make_minitorch_backend(device)
     initial_lens = [3, 5]
     decode_steps = 2
     shared = build_shared_attention_problem(
@@ -64,7 +72,7 @@ def test_paged_decode_matches_contiguous_decode() -> None:
         num_heads=2,
         head_dim=4,
         max_cache_len=max(initial_lens) + decode_steps,
-        device=torch.device("cpu"),
+        device=device,
         dtype=torch.float32,
     )
     paged_cache = PagedKVCache.allocate(
@@ -73,7 +81,7 @@ def test_paged_decode_matches_contiguous_decode() -> None:
         head_dim=4,
         page_size=2,
         max_pages=8,
-        device=torch.device("cpu"),
+        device=device,
         dtype=torch.float32,
     )
     populate_cache_from_prefix(layer, shared, initial_lens, backend, contiguous_cache)
